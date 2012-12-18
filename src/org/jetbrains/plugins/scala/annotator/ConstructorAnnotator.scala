@@ -1,12 +1,12 @@
 package org.jetbrains.plugins.scala
 package annotator
 
-import com.intellij.lang.annotation.AnnotationHolder
+import com.intellij.lang.annotation.{Annotation, AnnotationHolder}
 import lang.resolve.ScalaResolveResult
 import lang.psi.types.result.TypingContext
 import quickfix.ReportHighlightingErrorQuickFix
 import lang.psi.types._
-import lang.psi.api.expr.ScConstrBlock
+import lang.psi.api.expr.{ScSelfInvocation, ScConstrBlock}
 import com.intellij.codeInspection.ProblemHighlightType
 import lang.psi.api.base.{ScPrimaryConstructor, ScConstructor}
 import lang.psi.api.statements.ScFunction
@@ -66,6 +66,32 @@ trait ConstructorAnnotator {
   }
 
   def annotateAuxiliaryConstructor(constr: ScConstrBlock, holder: AnnotationHolder) {
+    def checkOrder(fun:ScFunction) = fun.getTextRange.getStartOffset > constr.getTextRange.getStartOffset
+
+    def getAnnotation(element:Option[ScSelfInvocation]): Option[Annotation] = {
+      element match {
+        case Some(self) => self.bind match {
+            case Some(fun: ScFunction) if checkOrder(fun) =>
+              val msg:String = ScalaBundle.message("called.constructor.definition.must.precede")
+              Option(holder.createErrorAnnotation(self, msg))
+            //case Some(c: ScPrimaryConstructor) => //it's ok
+            case _ => None
+          }
+        case None => constr.getContainingFile match {
+            case file: ScalaFile if !file.isCompiled =>
+              val msg:String = ScalaBundle.message("constructor.invocation.expected")
+              Option(holder.createErrorAnnotation(constr, msg))
+            case _ => None
+          }
+      }
+    }
+
+    val annotation = getAnnotation(constr.selfInvocation)
+    if (annotation.isDefined)
+      annotation.get setHighlightType ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+  }
+
+  def annotateAuxiliaryConstructor_old(constr: ScConstrBlock, holder: AnnotationHolder) {
     val selfInvocation = constr.selfInvocation
     selfInvocation match {
       case Some(self) =>
