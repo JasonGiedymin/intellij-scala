@@ -78,7 +78,7 @@ trait ConstructorAnnotator {
                 ScalaBundle.message("called.constructor.definition.must.precede"))
               annotation.setHighlightType(ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
             }
-          case None =>
+          case _ =>
         }
       case None =>
         constr.getContainingFile match {
