@@ -241,14 +241,19 @@ class ScalaFunctionParameterInfoHandler extends ParameterInfoHandlerWithTabActio
             }
           } else buffer.append(CodeInsightBundle.message("parameter.info.no.parameters"))
         }
+
+        // TODO: move from this pkg
+        type ParameterTuple = (String, ScType, PsiAnnotationMemberValue)
+        case class SeqZip(seq:Seq[ParameterTuple], i:Int)
+
         p match {
           case x: String if x == "" => {
             buffer.append(CodeInsightBundle.message("parameter.info.no.parameters"))
           }
-          case (seq: Seq[(String, ScType, PsiAnnotationMemberValue)], i: Int) => {
-            if (seq.length == 0) buffer.append(CodeInsightBundle.message("parameter.info.no.parameters"))
+          case sp:SeqZip => {
+            if (sp.seq.length == 0) buffer.append(CodeInsightBundle.message("parameter.info.no.parameters"))
             else {
-              val paramsSeq: Seq[(Parameter, String)] = seq.zipWithIndex.map {
+              val paramsSeq: Seq[(Parameter, String)] = sp.seq.zipWithIndex.map {
                 case (t, paramIndex) =>
                   (new Parameter(t._1, t._2, t._3 != null, false, false, paramIndex), t._1 + ": " + ScType.presentableText(t._2) + (
                           if (t._3 != null) " = " + t._3.getText else ""))
