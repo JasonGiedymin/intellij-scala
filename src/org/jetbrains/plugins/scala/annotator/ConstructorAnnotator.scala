@@ -8,7 +8,7 @@ import quickfix.ReportHighlightingErrorQuickFix
 import lang.psi.types._
 import lang.psi.api.expr.{ScSelfInvocation, ScConstrBlock}
 import com.intellij.codeInspection.ProblemHighlightType
-import lang.psi.api.base.{ScPrimaryConstructor, ScConstructor}
+import lang.psi.api.base.ScConstructor
 import lang.psi.api.statements.ScFunction
 import lang.psi.api.ScalaFile
 
@@ -89,31 +89,5 @@ trait ConstructorAnnotator {
     val annotation = getAnnotation(constr.selfInvocation)
     if (annotation.isDefined)
       annotation.get setHighlightType ProblemHighlightType.GENERIC_ERROR_OR_WARNING
-  }
-
-  def annotateAuxiliaryConstructor_old(constr: ScConstrBlock, holder: AnnotationHolder) {
-    val selfInvocation = constr.selfInvocation
-    selfInvocation match {
-      case Some(self) =>
-        self.bind match {
-          case Some(c: ScPrimaryConstructor) => //it's ok
-          case Some(fun: ScFunction) =>
-            //check order
-            if (fun.getTextRange.getStartOffset > constr.getTextRange.getStartOffset) {
-              val annotation = holder.createErrorAnnotation(self,
-                ScalaBundle.message("called.constructor.definition.must.precede"))
-              annotation.setHighlightType(ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-            }
-          case _ =>
-        }
-      case None =>
-        constr.getContainingFile match {
-          case file: ScalaFile if !file.isCompiled=>
-            val annotation = holder.createErrorAnnotation(constr,
-              ScalaBundle.message("constructor.invocation.expected"))
-            annotation.setHighlightType(ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-          case _ => //nothing to do in decompiled stuff
-        }
-    }
   }
 }
