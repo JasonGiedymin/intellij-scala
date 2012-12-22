@@ -1,5 +1,6 @@
 package org.jetbrains.plugins.scala.config.ui;
 
+import com.intellij.compiler.CompilerWorkspaceConfiguration;
 import com.intellij.facet.ui.*;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
@@ -58,6 +59,10 @@ public class FacetConfigurationEditor extends FacetEditorTab {
   private JLabel myVmParametersLabel;
   private LinkLabel myFscSettings;
   private JComboBox languageLevelComboBox;
+  private JPanel myFscSwitchPanel;
+  private JPanel myJvmParametersPanel;
+  private JComboBox myCompileOrder;
+  private JPanel myCompileOrderPanel;
 
   private MyAction myAddPluginAction = new AddPluginAction();
   private MyAction myRemovePluginAction = new RemovePluginAction();
@@ -86,6 +91,8 @@ public class FacetConfigurationEditor extends FacetEditorTab {
     myDebuggingInfoLevel.setModel(new DefaultComboBoxModel(DebuggingInfoLevel.values()));
     myLibraryRenderer = new LibraryRenderer(myCompilerLibrary);
     myCompilerLibrary.setRenderer(myLibraryRenderer);
+    myCompileOrder.setModel(new DefaultComboBoxModel(CompileOrder.values()));
+    myCompileOrder.setRenderer(new CompileOrderRenderer());
 
     myEnableWarnings.addChangeListener(new ChangeListener() {
       public void stateChanged(ChangeEvent e) {
@@ -130,13 +137,15 @@ public class FacetConfigurationEditor extends FacetEditorTab {
         }
       }
     });
-    
+
+    final boolean externalCompiler = CompilerWorkspaceConfiguration.getInstance(myEditorContext.getProject()).USE_COMPILE_SERVER;
+
     myValidatorsManager.registerValidator(new FacetEditorValidator() {
       @Override
       public ValidationResult check() {
-        ValidationResult libraryResult = myFSCRadioButton.isSelected()
-            ? ValidationResult.OK
-            : checkCompilerLibrary((LibraryDescriptor) myCompilerLibrary.getSelectedItem());
+        ValidationResult libraryResult = externalCompiler || !myFSCRadioButton.isSelected()
+            ? checkCompilerLibrary((LibraryDescriptor) myCompilerLibrary.getSelectedItem())
+            : ValidationResult.OK;
 
         ValidationResult continuationsResult = myEnableContinuations.isSelected()
             ? checkContinuationsPlugin(getPluginsModel().getItems())
@@ -164,10 +173,15 @@ public class FacetConfigurationEditor extends FacetEditorTab {
         ShowSettingsUtil.getInstance().showSettingsDialog(myEditorContext.getProject(), "Scala Compiler");
       }
     }, null);
+
+    myFscSwitchPanel.setVisible(!externalCompiler);
+    myJvmParametersPanel.setVisible(!externalCompiler);
+    myCompileOrderPanel.setVisible(externalCompiler);
   }
 
   private void updateCompilerSection() {
-    boolean b = !myFSCRadioButton.isSelected();
+    boolean externalCompiler = CompilerWorkspaceConfiguration.getInstance(myEditorContext.getProject()).USE_COMPILE_SERVER;
+    boolean b = externalCompiler || !myFSCRadioButton.isSelected();
     myCompilerLibraryLabel.setEnabled(b);
     myCompilerLibrary.setEnabled(b);
     myMaximumHeapSizeLabel.setEnabled(b);
@@ -184,7 +198,7 @@ public class FacetConfigurationEditor extends FacetEditorTab {
 
   private static ValidationResult checkCompilerLibrary(LibraryDescriptor descriptor) {
     if(descriptor == null || descriptor.data().isEmpty()) 
-      return ValidationResult.OK;
+      return new ValidationResult("No compiler library selected");
 
     String libraryName = "Compiler library";
         
@@ -249,6 +263,8 @@ public class FacetConfigurationEditor extends FacetEditorTab {
     data.setCompilerLibraryName(getCompilerLibraryName());
     data.setCompilerLibraryLevel(getCompilerLibraryLevel());
 
+    data.setCompileOrder((CompileOrder) myCompileOrder.getSelectedItem());
+
     try {
       data.setMaximumHeapSize(Integer.parseInt(myMaximumHeapSize.getText().trim()));
     } catch(NumberFormatException e){
@@ -280,6 +296,9 @@ public class FacetConfigurationEditor extends FacetEditorTab {
     myRunSeparateCompilerRadioButton.setSelected(!myData.getFsc());
     updateLibrariesList();
     setCompilerLibraryById(new LibraryId(myData.getCompilerLibraryName(), myData.getCompilerLibraryLevel()));
+
+    myCompileOrder.setSelectedItem(myData.getCompileOrder());
+
     myMaximumHeapSize.setText(Integer.toString(myData.getMaximumHeapSize()));
     myVmParameters.setText(myData.getVmOptions());
     

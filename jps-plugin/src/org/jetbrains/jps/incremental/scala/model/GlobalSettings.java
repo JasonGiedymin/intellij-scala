@@ -5,13 +5,7 @@ import org.jetbrains.jps.model.JpsElement;
 /**
  * @author Pavel Fatin
  */
-public interface ProjectSettings extends JpsElement, CompilerLibraryHolder {
-  Order getCompilationOrder();
-
-  LibraryLevel getCompilerLibraryLevel();
-
-  String getCompilerLibraryName();
-
+public interface GlobalSettings extends JpsElement {
   boolean isCompilationServerEnabled();
 
   int getCompilationServerPort();

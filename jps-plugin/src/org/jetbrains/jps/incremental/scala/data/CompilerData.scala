@@ -52,19 +52,33 @@ object CompilerData {
 
       val files = compilerLibrary.getFiles(JpsOrderRootType.COMPILED).asScala
 
-      files.find(_.getName == "scala-library.jar")
-              .toRight("No 'scala-library.jar' in Scala compiler library in " + module.getName)
-              .flatMap { libraryJar =>
+      val library = find(files, "scala-library", ".jar") match {
+        case Left(error) => Left(error + " in Scala compiler library in " + module.getName)
+        case right => right
+      }
 
-        files.find(_.getName == "scala-compiler.jar")
-                .toRight("No 'scala-compiler.jar' in Scala compiler library in " + module.getName)
-                .map { compilerJar =>
+      library.flatMap { libraryJar =>
+        val compiler = find(files, "scala-compiler", ".jar") match {
+          case Left(error) => Left(error + " in Scala compiler library in " + module.getName)
+          case right => right
+        }
 
+        compiler.map { compilerJar =>
           val extraJars = files.filterNot(file => file == libraryJar || file == compilerJar)
-
           CompilerJars(libraryJar, compilerJar, extraJars)
         }
       }
+    }
+  }
+
+  private def find(files: Seq[File], prefix: String, suffix: String): Either[String, File] = {
+    files.filter(it => it.getName.startsWith(prefix) && it.getName.endsWith(suffix)) match {
+      case Seq() =>
+        Left("No '%s*%s'".format(prefix, suffix))
+      case Seq(file) =>
+        Right(file)
+      case Seq(duplicates @ _*) =>
+        Left("Multiple '%s*%s' files (%s)".format(prefix, suffix, duplicates.map(_.getName).mkString(", ")))
     }
   }
 
@@ -73,14 +87,8 @@ object CompilerData {
             .toRight("No Scala facet in module " + module.getName)
 
     scalaFacet.flatMap { facet =>
-      val project = model.getProject
-      val fsc = facet.isFscEnabled
-      val settings = if (fsc) SettingsManager.getProjectSettings(project) else facet
-
-      val libraryLevel = Option(settings.getCompilerLibraryLevel).toRight {
-        if (fsc) "No FSC compiler library level set in project " + project.getName
-        else "No compiler library level set in module " + module.getName
-      }
+      val libraryLevel = Option(facet.getCompilerLibraryLevel)
+              .toRight("No compiler library set in module " + module.getName)
 
       libraryLevel.flatMap { level =>
         val libraries = level match {
@@ -89,16 +97,12 @@ object CompilerData {
           case Module => module.getLibraryCollection
         }
 
-        val libraryName = Option(settings.getCompilerLibraryName).toRight {
-          if (fsc) "No FSC compiler library name set in project " + project.getName
-          else "No compiler library name set in module " + module.getName
-        }
+        val libraryName = Option(facet.getCompilerLibraryName)
+                .toRight("No compiler library set in module " + module.getName)
 
         libraryName.flatMap { name =>
-          Option(libraries.findLibrary(name)).toRight {
-            if (fsc) String.format("FSC compiler library in project %s not found: %s / %s ", project.getName, libraryLevel, libraryName)
-            else String.format("Сompiler library for module %s not found: %s / %s ", module.getName, libraryLevel, libraryName)
-          }
+          Option(libraries.findLibrary(name)).toRight(String.format(
+            "Сompiler library for module %s not found: %s / %s ", module.getName, libraryLevel, libraryName))
         }
       }
     }

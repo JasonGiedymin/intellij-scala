@@ -61,14 +61,9 @@ class WorksheetRunConfiguration(val project: Project, val configurationFactory: 
 
   val ContinueString = "     | "
   val PromptString   = "scala> "
-  var worksheetViewer: Editor = null
 
   private var javaOptions = "-Djline.terminal=NONE"
-  private var workingDirectory = {
-    val base = getProject.getBaseDir
-    if (base != null) base.getPath
-    else ""
-  }
+  private var workingDirectory = Option(getProject.getBaseDir) map (_.getPath) getOrElse ""
 
   private var worksheetField = ""
 
@@ -103,10 +98,7 @@ class WorksheetRunConfiguration(val project: Project, val configurationFactory: 
       val dimension = editor.getComponent.getSize()
       val prefDim = new Dimension((dimension.getWidth / 2).toInt, dimension.getHeight.toInt)
 
-      if (worksheetViewer != null) {
-        EditorFactory.getInstance.releaseEditor(worksheetViewer)
-      }
-      worksheetViewer = createBlankEditor(project)
+      val worksheetViewer = createBlankEditor(project)
       val model = editor.asInstanceOf[EditorImpl].getScrollPane.getVerticalScrollBar.getModel
       worksheetViewer.asInstanceOf[EditorImpl].getScrollPane.getVerticalScrollBar.setModel(model)
       worksheetViewer.getComponent.setPreferredSize(prefDim)
@@ -129,6 +121,7 @@ class WorksheetRunConfiguration(val project: Project, val configurationFactory: 
       pane.setPreferredSize(dimension)
       editor.getComponent.add(pane, BorderLayout.CENTER)
 
+      WorksheetViewerInfo.addViewer(worksheetViewer, editor)
       worksheetViewer
     }
 

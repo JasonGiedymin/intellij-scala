@@ -5,7 +5,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.components.ProjectComponent
 import config.ScalaFacet
 import com.intellij.compiler.CompilerWorkspaceConfiguration
-import com.intellij.openapi.compiler.{CompileContext, CompileTask, CompilerManager}
+import com.intellij.openapi.compiler.{CompilerMessageCategory, CompileContext, CompileTask, CompilerManager}
+import com.intellij.openapi.roots.ProjectRootManager
+import extensions._
 
 /**
  * Pavel Fatin
@@ -20,18 +22,37 @@ class ServerMediator(project: Project) extends ProjectComponent {
 
       if (scalaProject) {
         if (externalCompiler) {
-          project.getComponent(classOf[FscServerLauncher]).stop()
-          project.getComponent(classOf[FscServerManager]).removeWidget()
+          invokeAndWait {
+            project.getComponent(classOf[FscServerLauncher]).stop()
+            project.getComponent(classOf[FscServerManager]).removeWidget()
+          }
 
-          val projectSettings = ScalacSettings.getInstance(context.getProject)
+          val applicationSettings = ScalaApplicationSettings.getInstance()
 
-          if (projectSettings.COMPILATION_SERVER_ENABLED) {
-            project.getComponent(classOf[CompilationServerManager]).configureWidget()
-            project.getComponent(classOf[CompilationServerLauncher]).init()
+          if (applicationSettings.COMPILE_SERVER_ENABLED) {
+            invokeAndWait {
+              CompileServerManager.instance(project).configureWidget()
+            }
+
+            if (!CompileServerLauncher.instance.running) {
+              val sdk = ProjectRootManager.getInstance(project).getProjectSdk
+
+              if (sdk == null) {
+                context.addMessage(CompilerMessageCategory.ERROR, "No project SDK to run Scala compile server.\n" +
+                        "Please either disable Scala compile server or specify a project SDK.", null, -1, -1)
+                return false
+              }
+
+              invokeAndWait {
+                CompileServerLauncher.instance.init(sdk)
+              }
+            }
           }
         } else {
-          project.getComponent(classOf[CompilationServerLauncher]).stop()
-          project.getComponent(classOf[CompilationServerManager]).removeWidget()
+          invokeAndWait {
+            CompileServerLauncher.instance.stop()
+            CompileServerManager.instance(project).removeWidget()
+          }
         }
       }
 

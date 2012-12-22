@@ -23,8 +23,9 @@ class CompilerImpl(javac: JavaCompiler, scalac: Option[AnalyzingCompiler], fileT
       val options = new CompileOptions(compilationData.scalaOptions, compilationData.javaOptions)
       val compilerVersion = scalac.map(_.scalaInstance.version).getOrElse("none")
       val order = compilationData.order match {
+        case Order.Mixed => CompileOrder.Mixed
         case Order.JavaThenScala => CompileOrder.JavaThenScala
-        case Order.ScalaThenJava => CompileOrder.Mixed
+        case Order.ScalaThenJava => CompileOrder.ScalaThenJava
       }
       new CompileSetup(output, options, compilerVersion, order)
     }
@@ -137,7 +138,7 @@ private class ClientReporter(client: Client) extends Reporter {
     val column = toOption(pos.pointer).map(_.toLong + 1L)
 
     val messageWithLineAndPointer = {
-      val indent = column.map(it => StringUtil.repeatSymbol(' ', it.toInt - 1))
+      val indent = toOption(pos.pointerSpace)
       msg + "\n" + pos.lineContent + indent.map("\n" + _ + "^").getOrElse("")
     }
 

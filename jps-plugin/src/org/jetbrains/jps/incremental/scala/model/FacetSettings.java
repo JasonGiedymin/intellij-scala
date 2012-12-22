@@ -5,12 +5,12 @@ import org.jetbrains.jps.model.JpsElement;
 /**
  * @author Pavel Fatin
  */
-public interface FacetSettings extends JpsElement, CompilerLibraryHolder {
+public interface FacetSettings extends JpsElement {
   LibraryLevel getCompilerLibraryLevel();
 
   String getCompilerLibraryName();
 
-  boolean isFscEnabled();
+  Order getCompileOrder();
 
   String[] getCompilerOptions();
 }
