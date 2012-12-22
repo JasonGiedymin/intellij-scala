@@ -1,7 +1,7 @@
 package org.jetbrains.plugins.scala
 package compiler
 
-import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.{DumbAware, Project}
 import com.intellij.openapi.components.ProjectComponent
 import com.intellij.openapi.wm.{StatusBar, StatusBarWidget, WindowManager}
 import com.intellij.openapi.wm.StatusBarWidget.PlatformType
@@ -108,7 +108,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
 
        def getClickConsumer = ClickConsumer
 
-       def getTooltipText = title
+       def getTooltipText = title + launcher.port.map(_.formatted(" (TCP %d)")).getOrElse("")
 
        object ClickConsumer extends Consumer[MouseEvent] {
          def consume(t: MouseEvent) {
@@ -118,7 +118,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
      }
    }
 
-   private def title = "Сompile server (Scala)"
+   private def title = "Scala compile server"
 
    private def toggleList(e: MouseEvent) {
      val mnemonics = JBPopupFactory.ActionSelectionAid.MNEMONICS
@@ -130,7 +130,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
      popup.show(new RelativePoint(e.getComponent, at))
    }
 
-   private object Start extends AnAction("&Run", "Start compile server", IconLoader.getIcon("/actions/execute.png")) {
+   private object Start extends AnAction("&Run", "Start compile server", IconLoader.getIcon("/actions/execute.png")) with DumbAware {
      override def update(e: AnActionEvent) {
        e.getPresentation.setEnabled(!launcher.running)
      }
@@ -148,7 +148,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
      }
    }
 
-   private object Stop extends AnAction("&Stop", "Shutdown compile server", IconLoader.getIcon("/actions/suspend.png")) {
+   private object Stop extends AnAction("&Stop", "Shutdown compile server", IconLoader.getIcon("/actions/suspend.png")) with DumbAware {
      override def update(e: AnActionEvent) {
        e.getPresentation.setEnabled(launcher.running)
      }
@@ -158,7 +158,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
      }
    }
 
-  private object Configure extends AnAction("&Configure...", "Configure compile server", IconLoader.getIcon("/general/configure.png")) {
+  private object Configure extends AnAction("&Configure...", "Configure compile server", IconLoader.getIcon("/general/configure.png")) with DumbAware {
     def actionPerformed(e: AnActionEvent) {
       ShowSettingsUtil.getInstance().showSettingsDialog(null, "Scala")
     }
@@ -188,13 +188,10 @@ class CompileServerManager(project: Project) extends ProjectComponent {
 
        wasRunning -> nowRunning match {
          case (false, true) =>
-           val notification = new Notification("scala", title, "Startup", NotificationType.INFORMATION)
-           Notifications.Bus.register("scala", NotificationDisplayType.BALLOON)
-           Notifications.Bus.notify(notification, project)
+           val message = "Started" + launcher.port.map(_.formatted(" on TCP %d")).getOrElse("") + "."
+           Notifications.Bus.notify(new Notification("scala", title, message, NotificationType.INFORMATION), project)
          case (true, false) =>
-           val notification = new Notification("scala", title, "Shutdown", NotificationType.INFORMATION)
-           Notifications.Bus.register("scala", NotificationDisplayType.BALLOON)
-           Notifications.Bus.notify(notification, project)
+           Notifications.Bus.notify(new Notification("scala", title, "Stopped.", NotificationType.INFORMATION), project)
          case _ =>
        }
 
@@ -203,9 +200,7 @@ class CompileServerManager(project: Project) extends ProjectComponent {
        val errors = launcher.errors()
 
        if (errors.nonEmpty) {
-         val notification = new Notification("scala", title, errors.mkString, NotificationType.ERROR)
-         Notifications.Bus.register("scala", NotificationDisplayType.BALLOON)
-         Notifications.Bus.notify(notification, project)
+         Notifications.Bus.notify(new Notification("scala", title, errors.mkString, NotificationType.ERROR), project)
        }
      }
    }
